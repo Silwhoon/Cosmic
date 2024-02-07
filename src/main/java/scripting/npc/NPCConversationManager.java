@@ -61,8 +61,8 @@ import server.maps.MapObjectType;
 import server.maps.MapleMap;
 import server.partyquest.AriantColiseum;
 import server.partyquest.MonsterCarnival;
-import server.partyquest.Pyramid;
-import server.partyquest.Pyramid.PyramidMode;
+import server.partyquest.pyramid.Pyramid;
+import server.partyquest.pyramid.PyramidMode;
 import tools.PacketCreator;
 import tools.packets.WeddingPackets;
 
@@ -496,6 +496,7 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         MapleLeafLogger.log(getPlayer(), true, prize);
     }
 
+    // TODO: Pyramid
     public boolean createPyramid(String mode, boolean party) {//lol
         PyramidMode mod = PyramidMode.valueOf(mode);
 

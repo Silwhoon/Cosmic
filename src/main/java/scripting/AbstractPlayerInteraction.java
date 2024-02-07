@@ -49,7 +49,7 @@ import server.maps.MapObject;
 import server.maps.MapObjectType;
 import server.maps.MapleMap;
 import server.partyquest.PartyQuest;
-import server.partyquest.Pyramid;
+import server.partyquest.pyramid.Pyramid;
 import server.quest.Quest;
 import tools.PacketCreator;
 import tools.Pair;

@@ -20,7 +20,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package server.partyquest;
+package server.partyquest.pyramid;
 
 import client.Character;
 import constants.id.ItemId;
@@ -28,6 +28,7 @@ import constants.id.MapId;
 import net.server.world.Party;
 import server.ItemInformationProvider;
 import server.TimerManager;
+import server.partyquest.PartyQuest;
 import tools.PacketCreator;
 
 import java.util.concurrent.ScheduledFuture;
@@ -38,18 +39,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * @author kevintjuh93
  */
 public class Pyramid extends PartyQuest {
-    public enum PyramidMode {
-        EASY(0), NORMAL(1), HARD(2), HELL(3);
-        int mode;
-
-        PyramidMode(int mode) {
-            this.mode = mode;
-        }
-
-        public int getMode() {
-            return mode;
-        }
-    }
 
     int kill = 0, miss = 0, cool = 0, exp = 0, map, count;
     byte coolAdd = 5, missSub = 4, decrease = 1;//hmmm
