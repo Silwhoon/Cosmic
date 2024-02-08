@@ -48,6 +48,7 @@ public class MonsterStats {
     public selfDestruction selfDestruction = null;
     public int fixedStance = 0;
     public boolean friendly;
+    private int coolDamage;
     private int coolDamageProb;
 
     public void setChange(boolean change) {
@@ -345,6 +346,14 @@ public class MonsterStats {
 
     public void setCoolDamageProb(int prob) {
         this.coolDamageProb = prob;
+    }
+
+    public int getCoolDamage() {
+        return coolDamage;
+    }
+
+    public void setCoolDamage(int coolDamage) {
+        this.coolDamage = coolDamage;
     }
 
     public MonsterStats copy() {

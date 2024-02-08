@@ -159,6 +159,9 @@ public class MapleMap {
     private int timeDefault;
     private int timeExpand;
 
+    // Pyramid PQ
+    private MapPyramidInfo pyramidInfo = null;
+
     //locks
     private final Lock chrRLock;
     private final Lock chrWLock;
@@ -1304,6 +1307,11 @@ public class MapleMap {
     }
 
     public boolean damageMonster(final Character chr, final Monster monster, final int damage) {
+        Pyramid pyramid = PyramidProcessor.getPyramidForCharacter(chr.getId());
+        if (pyramid != null) {
+            pyramid.hitMonster(chr, monster, damage);
+        }
+
         if (monster.getId() == MobId.ZAKUM_1) {
             for (MapObject object : chr.getMap().getMapObjects()) {
                 Monster mons = chr.getMap().getMonsterByOid(object.getObjectId());
@@ -1399,11 +1407,6 @@ public class MapleMap {
 
                     if (monster.getCP() > 0 && chr.getMap().isCPQMap()) {
                         chr.gainCP(monster.getCP());
-                    }
-
-                    Pyramid pyramid = PyramidProcessor.getPyramidForCharacter(chr.getId());
-                    if (pyramid != null) {
-                        pyramid.kill(monster);
                     }
 
                     int buff = monster.getBuffToGive();
@@ -4491,6 +4494,14 @@ public class MapleMap {
 
     public void setTimeExpand(int timeExpand) {
         this.timeExpand = timeExpand;
+    }
+
+    public void setPyramidInfo(MapPyramidInfo pyramidInfo) {
+        this.pyramidInfo = pyramidInfo;
+    }
+
+    public MapPyramidInfo getPyramidInfo() {
+        return this.pyramidInfo;
     }
 
 }

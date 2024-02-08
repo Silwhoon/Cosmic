@@ -35,11 +35,32 @@ const DIFFICULTY_NORMAL = 1;
 const DIFFICULTY_HARD = 2;
 const DIFFICULTY_HELL = 3;
 
+const PYRAMID_DUNES = 926010000;
+const NETTS_PYRAMID_END = 926010001;
+const SHADES_OF_THE_PYRAMID = 926020001;
+
 function start() {
     action(1, 0, 0);
 }
 
 function action(mode, type, selection) {
+    switch (cm.getPlayer().getMap().getId()) {
+        case PYRAMID_DUNES:
+            pyramidDunesAction(mode, type, selection);
+            break;
+        case NETTS_PYRAMID_END:
+            pyramidEndAction(mode, type, selection);
+            break;
+        case SHADES_OF_THE_PYRAMID:
+            pyramidBonusAction(mode, type, selection);
+            break;
+        default:
+            pyramidForfeitAction(mode, type, selection);
+            break;
+    }
+}
+
+function pyramidDunesAction(mode, type, selection) {
     if (mode === -1) {
         cm.dispose();
     } else {
@@ -62,11 +83,15 @@ function action(mode, type, selection) {
             str += "#L" + RECEIVE_THE_PHARAOH_MEDAL + "#Receive the <Protector of Pharaoh> Medal#l\r\n";
             cm.sendSimple(str);
         } else if (status === 1) {
-            selected = selection;
+            if (selection !== -1) {
+                selected = selection;
+            }
             switch (selected) {
                 case ASK_ABOUT_THE_PYRAMID:
-                    cm.sendOk("TODO: Ask about the Pyramid");
-                    cm.dispose();
+                    str = "This is the pyramid of Nett, the god of chaos and revenge. For a long time, it was buried deep in the desert, ";
+                    str += "but Nett has ordered it to rise above ground. If you are unafraid of chaos and possible death, you may challenge ";
+                    str += "Pharaoh Yeti, who lies asleep in side the Pyramid. Whatever the outcome, the choice is yours to make.";
+                    cm.sendNext(str);
                     break;
                 case ENTER_THE_PYRAMID:
                     str = "You fools who know no fear of Nett's wrath, it is now time to choose your destiny!\r\n\r\n#b";
@@ -75,11 +100,15 @@ function action(mode, type, selection) {
                     cm.sendSimple(str);
                     break;
                 case ENTER_PHARAOH_YETIS_TOMB:
-                    cm.sendOk("TODO: Enter Pharaoh Yetis tomb");
-                    cm.dispose();
+                    str = "What gem have you brought?\r\n\r\n";
+                    str += "#L0##i4001322# #z4001322##l\r\n";
+                    str += "#L1##i4001323# #z4001323##l\r\n";
+                    str += "#L2##i4001324# #z4001324##l\r\n";
+                    str += "#L3##i4001325# #z4001325##l\r\n";
+                    cm.sendSimple(str);
                     break;
                 case ASK_ABOUT_PHARAOH_YETIS_TREASURE:
-                    cm.sendOk("TODO: Ask about Pharaoh Yetis treasure");
+                    cm.sendNext("Inside Pharaoh Yeti's Tomb, you can acquire a #e#b#z2022613##k#n by proving yourself capable of defeating the #bPharaoh Jr. Yeti#k, the Pharaoh's clone. Inside that box lies a very special treasure. It is the #e#b#t1132012##k#n.\r\n#i1132012:# #z1132012#\r\n\r\nAnd if you are somehow able to survive Hell Mode, you will receive the #e#b#t1132013##k#n.\r\n\r\n#i1132013:# #z1132013#\r\n\r\nThough, of course, Nett won't allow that to happen.");
                     cm.dispose();
                     break;
                 case RECEIVE_THE_PHARAOH_MEDAL:
@@ -89,9 +118,18 @@ function action(mode, type, selection) {
             }
         } else if (status === 2) {
             switch (selected) {
+                case ASK_ABOUT_THE_PYRAMID:
+                    str = "Once you enter the Pyramid, you will be faced with the wrath of Nett. Since you don't look too sharp, I will offer ";
+                    str += "you some advice and rules to follow. Remember them well.\r\n\r\n";
+                    str += "#b1. Be careful that your #r#eAct Gauage#n#b does not decrease. The only way to maintain your Gauage level is to battle the monsters without stopping.\r\n";
+                    str += "2. Those who are unable will pay dearly. Be careful to not cause any #rMiss#b.\r\n";
+                    str += "3. Be wary of the Pharaoh Jr. Yeti with the #v04032424# mark. Make the mistake of attacking him and you will regret it.\r\n";
+                    str += "4. Be wise about using the skill that is given to you for Kill accomplishments.";
+                    cm.sendNextPrev(str);
+                    break;
                 case ENTER_THE_PYRAMID:
                     if (selection === 1) {
-                        if (cm.getParty() == null || cm.getParty().getMembers().size() < 2) {
+                        if (cm.getParty() == null || cm.getParty().getMembers().size() < 1) {
                             // TODO: Get the GMS-like text for this
                             cm.sendOk("You are not currently in a party with at least 2 members.");
                             cm.dispose();
@@ -106,11 +144,20 @@ function action(mode, type, selection) {
                     str += "#L" + DIFFICULTY_HELL + "##i3994118##l";
                     cm.sendSimple(str);
                     break;
+                case ENTER_PHARAOH_YETIS_TOMB:
+                    if (selection === 0) {
+                        // TODO: Handle gem bonus stuff here
+                    }
+                    cm.dispose();
+                    break;
                 default:
                     cm.dispose();
             }
         } else if (status === 3) {
             switch (selected) {
+                case ASK_ABOUT_THE_PYRAMID:
+                    cm.sendNextPrev("Those who are able to withstand Nett's wrath will be honored, but those who fail will face destruction. This is all the advice I can give you. The rest is in your hands.");
+                    break;
                 case ENTER_THE_PYRAMID:
                     const PyramidProcessor = Java.type('server.partyquest.pyramid.PyramidProcessor');
                     var difficultyId = selection;
@@ -140,8 +187,120 @@ function action(mode, type, selection) {
                     cm.dispose();
                     break;
             }
+        } else if (status === 4) {
+            switch (selected) {
+                case ASK_ABOUT_THE_PYRAMID:
+                    cm.dispose();
+                    break;
+                default:
+                    cm.dispose();
+                    break;
+            }
         }
     }
+}
+
+function pyramidEndAction(mode, type, selection) {
+    if (mode === -1) {
+        cm.dispose();
+    } else {
+        if (mode === 0 && type > 0) {
+            cm.dispose();
+            return;
+        }
+        if (mode === 1) {
+            status++;
+        } else {
+            status--;
+        }
+
+        if (status === 0) {
+            str = "Your allotted time has passed. Do you want to leave now?\r\n\r\n#b";
+            str += "#L0#Leave#l";
+            cm.sendSimple(str);
+        } else if (status === 1) {
+            cm.warp(SHADES_OF_THE_PYRAMID);
+            cm.dispose();
+        }
+    }
+}
+
+function pyramidBonusAction(mode, type, selection) {
+    if (mode === -1) {
+        cm.dispose();
+    } else {
+        if (mode === 0 && type > 0) {
+            cm.dispose();
+            return;
+        }
+        if (mode === 1) {
+            status++;
+        } else {
+            status--;
+        }
+
+        const PyramidProcessor = Java.type('server.partyquest.pyramid.PyramidProcessor');
+        var pyramid = PyramidProcessor.getPyramidForCharacter(cm.getPlayer().getId());
+
+        if (pyramid == null || pyramid.checkIfFailed()) {
+            cm.warp(PYRAMID_DUNES);
+            cm.dispose();
+            return;
+        }
+
+        if (status === 0) {
+            str = "Stop! You've successfully passed Nett's test. By Nett's grace, you will now be given the opportunity to enter Pharaoh Yeti's Tomb. Do you wish to enter it now?\r\n\r\n#b";
+            str += "#L0#Yes, I will go now#l\r\n";
+            str += "#L1#No, I will go later#l\r\n";
+            cm.sendSimple(str);
+        } else if (status === 1) {
+            if (selection === 0) {
+                pyramid.startBonus(cm.getPlayer());
+                cm.dispose();
+            } else if (selection === 1) {
+                cm.sendNext("I will give you Pharaoh Yeti's Gem. You will be able to enter Pharaoh Yeti's Tomb anytime with this Gem. Check to see if you have at least 1 empty slot in your Etc window.");
+            }
+        } else if (status === 2) {
+            pyramid.skipBonus(cm.getPlayer());
+            cm.dispose();
+        }
+    }
+}
+
+function pyramidForfeitAction(mode, type, selection) {
+    if (mode === -1) {
+        cm.dispose();
+    } else {
+        if (mode === 0 && type > 0) {
+            cm.dispose();
+            return;
+        }
+        if (mode === 1) {
+            status++;
+        } else {
+            status--;
+        }
+
+        const PyramidProcessor = Java.type('server.partyquest.pyramid.PyramidProcessor');
+        var pyramid = PyramidProcessor.getPyramidForCharacter(cm.getPlayer().getId());
+
+        if (pyramid == null) {
+            cm.warp(PYRAMID_DUNES);
+            cm.dispose();
+            return;
+        }
+
+        if (status === 0) {
+            str = "Do you want to forfeit the challenge and leave?\r\n\r\n#b";
+            str += "#L0# Leave#l\r\n";
+            cm.sendSimple(str);
+        } else if (status === 1) {
+            pyramid.leave();
+            cm.warp(PYRAMID_DUNES);
+            cm.dispose();
+        }
+    }
+}
 
     // if (cm.getMapId() == 926010000) {
     //     if (status == 0) {
@@ -290,7 +449,7 @@ function action(mode, type, selection) {
     //     cm.getPlayer().setPartyQuest(null);
     //     cm.dispose();
     // }
-}/*Do you want to forfeit the challenge and leave?
+/*Do you want to forfeit the challenge and leave?
 
 Your allotted time has passed. Do you want to leave now?
 

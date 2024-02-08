@@ -1,6 +1,7 @@
 function start(ms) {
-    var py = ms.getPyramid();
-    if (py != null) {
-        py.sendScore(ms.getPlayer());
+    const PyramidProcessor = Java.type('server.partyquest.pyramid.PyramidProcessor');
+    var pyramid = PyramidProcessor.getPyramidForCharacter(ms.getPlayer().getId());
+    if (pyramid != null) {
+        pyramid.broadcastScore(ms.getPlayer());
     }
 }

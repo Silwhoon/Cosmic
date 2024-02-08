@@ -32,7 +32,6 @@ public class PyramidProcessor {
 
     public static Pyramid getPyramidForCharacter(int characterId) {
         synchronized (activePyramids) {
-            // TODO: Add fail-safe here
             return activePyramids.get(characterId);
         }
     }

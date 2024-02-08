@@ -191,6 +191,12 @@ public class MapFactory {
             map.setMapLineBoundings(bounds[0], bounds[1], bounds[2], bounds[3]);
         }
 
+        // Load Pyramid PQ values, if available
+        Data mobMassacreData = mapData.getChildByPath("mobMassacre");
+        if (mobMassacreData != null) {
+            map.setPyramidInfo(new MapPyramidInfo(mobMassacreData));
+        }
+
         List<Foothold> allFootholds = new LinkedList<>();
         Point lBound = new Point();
         Point uBound = new Point();
