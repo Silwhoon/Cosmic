@@ -73,6 +73,7 @@ import server.partyquest.AriantColiseum;
 import server.partyquest.MonsterCarnival;
 import server.partyquest.MonsterCarnivalParty;
 import server.partyquest.PartyQuest;
+import server.partyquest.pyramid.PyramidProcessor;
 import server.quest.Quest;
 import tools.*;
 import tools.exceptions.NotEnabledException;
@@ -1233,6 +1234,8 @@ public class Character extends AbstractCharacterObject {
             warpMap = eim.getMapInstance(map);
         } else if (this.getMonsterCarnival() != null && this.getMonsterCarnival().getEventMap().getId() == map) {
             warpMap = this.getMonsterCarnival().getEventMap();
+        } else if (PyramidProcessor.getPyramidForCharacter(this.id) != null) {
+            warpMap = PyramidProcessor.getPyramidForCharacter(this.id).getMap(map);
         } else {
             warpMap = client.getChannelServer().getMapFactory().getMap(map);
         }

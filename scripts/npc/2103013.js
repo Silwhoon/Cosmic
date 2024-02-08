@@ -90,7 +90,15 @@ function action(mode, type, selection) {
         } else if (status === 2) {
             switch (selected) {
                 case ENTER_THE_PYRAMID:
-                    if (selection === 1) solo = false;
+                    if (selection === 1) {
+                        if (cm.getParty() == null || cm.getParty().getMembers().size() < 2) {
+                            // TODO: Get the GMS-like text for this
+                            cm.sendOk("You are not currently in a party with at least 2 members.");
+                            cm.dispose();
+                            return;
+                        }
+                        solo = false;
+                    }
                     str = "You who lack fear of death's cruelty, make your decision!\r\n\r\n";
                     str += "#L" + DIFFICULTY_EASY + "##i3994115##l";
                     str += "#L" + DIFFICULTY_NORMAL + "##i3994116##l";
@@ -104,8 +112,28 @@ function action(mode, type, selection) {
         } else if (status === 3) {
             switch (selected) {
                 case ENTER_THE_PYRAMID:
-                    var difficulty = selection;
-                    cm.sendOk("TODO: START PQ HERE");
+                    const PyramidProcessor = Java.type('server.partyquest.pyramid.PyramidProcessor');
+                    var difficultyId = selection;
+                    var pyramid;
+
+                    if (solo) pyramid = PyramidProcessor.createSoloPyramidInstance(cm.getPlayer(), difficultyId);
+                    else pyramid = PyramidProcessor.createPartyPyramidInstance(cm.getParty(), difficultyId);
+
+                    // Check to make sure all characters are in the entrance map
+                    if (!pyramid.checkCharactersArePresent()) {
+                        cm.sendOk("Please make sure all party members are present in the map before starting the Party Quest.");
+                        cm.dispose();
+                        return;
+                    }
+
+                    // Check to make sure all characters are of the right level
+                    if (!pyramid.checkCharacterLevels()) {
+                        cm.sendOk("You or one of your party members are not in the correct level range for this difficulty. You must be between #bLv. " + pyramid.getMinLevel() + " - " + pyramid.getMaxLevel() + "#k.");
+                        cm.dispose();
+                        return;
+                    }
+
+                    pyramid.start();
                     cm.dispose();
                     break;
                 default:

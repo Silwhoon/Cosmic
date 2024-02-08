@@ -23,236 +23,175 @@
 package server.partyquest.pyramid;
 
 import client.Character;
-import constants.id.ItemId;
-import constants.id.MapId;
+import net.server.Server;
+import net.server.channel.Channel;
 import net.server.world.Party;
-import server.ItemInformationProvider;
-import server.TimerManager;
-import server.partyquest.PartyQuest;
+import net.server.world.PartyCharacter;
+import server.life.Monster;
+import server.maps.MapleMap;
 import tools.PacketCreator;
 
-import java.util.concurrent.ScheduledFuture;
-
-import static java.util.concurrent.TimeUnit.SECONDS;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * @author kevintjuh93
+ * @author Silwhoon
  */
-public class Pyramid extends PartyQuest {
+public class Pyramid {
 
-    int kill = 0, miss = 0, cool = 0, exp = 0, map, count;
-    byte coolAdd = 5, missSub = 4, decrease = 1;//hmmm
-    short gauge;
-    byte rank, skill = 0, stage = 0, buffcount = 0;//buffcount includes buffs + skills
-    PyramidMode mode;
+    private static final int ENTRANCE_MAP_ID = 926010000;
 
-    ScheduledFuture<?> timer = null;
-    ScheduledFuture<?> gaugeSchedule = null;
+    private final PyramidDifficulty difficulty;
+    private final List<Character> characters = new ArrayList<>();
+    private float gaugePercent;
+    private float gaugeDecreasePerSecond;
+    private final float gaugeDecreasePerMiss = 3.0f; // TODO: This is purely guesswork, what is the real GMS value and does it differ based on difficulty/solo/party?
+    private final float gaugeIncreasePerKill = 0.5f; // TODO: This is purely guesswork, what is the real GMS value and does it differ based on difficulty/solo/party?
+    private int currentStage = 1;
+    private int totalKills = 0;
 
-    public Pyramid(Party party, PyramidMode mode, int mapid) {
-        super(party);
-        this.mode = mode;
-        this.map = mapid;
 
-        byte plus = (byte) mode.getMode();
-        coolAdd += plus;
-        missSub += plus;
-        switch (plus) {
-            case 0:
-                decrease = 1;
-            case 1:
-            case 2:
-                decrease = 2;
-            case 3:
-                decrease = 3;
+    protected Pyramid(Character soloCharacter, PyramidDifficulty difficulty) {
+        this.difficulty = difficulty;
+
+        addCharacter(soloCharacter);
+
+        switch (difficulty) {
+            case EASY:
+                this.gaugeDecreasePerSecond = 1; // TODO: Confirm this is correct
+                break;
+            case NORMAL:
+                this.gaugeDecreasePerSecond = 1; // TODO: Confirm this is correct
+                break;
+            case HARD:
+                this.gaugeDecreasePerSecond = 2; // TODO: Confirm this is correct
+                break;
+            case HELL:
+                this.gaugeDecreasePerSecond = 2;
+                break;
         }
     }
 
-    public void startGaugeSchedule() {
-        if (gaugeSchedule == null) {
-            gauge = 100;
-            count = 0;
-            gaugeSchedule = TimerManager.getInstance().register(() -> {
-                gauge -= decrease;
-                if (gauge <= 0) {
-                    warp(MapId.NETTS_PYRAMID);
+    public Pyramid(Party party, PyramidDifficulty difficulty) {
+        this.difficulty = difficulty;
+
+        for (PartyCharacter partyCharacter : party.getPartyMembersOnline()) {
+            Character character = partyCharacter.getPlayer();
+            addCharacter(character);
+        }
+
+        switch (difficulty) {
+            case EASY:
+                this.gaugeDecreasePerSecond = 1; // TODO: Confirm this is correct
+                break;
+            case NORMAL:
+                this.gaugeDecreasePerSecond = 1;
+                break;
+            case HARD:
+                this.gaugeDecreasePerSecond = 2; // TODO: Confirm this is correct
+                break;
+            case HELL:
+                this.gaugeDecreasePerSecond = 3;
+                break;
+        }
+    }
+
+    private void addCharacter(Character character) {
+        synchronized (this.characters) {
+            this.characters.add(character);
+        }
+    }
+
+    private void removeCharacter(Character character) {
+        synchronized (this.characters) {
+            this.characters.remove(character);
+        }
+    }
+
+    public void start() {
+        synchronized (this.characters) {
+            for (Character character : this.characters) {
+                PyramidProcessor.registerPyramid(character.getId(), this);
+                character.changeMap(926010100, 0);
+            }
+        }
+    }
+
+    public void end() {
+        synchronized (this.characters) {
+            for (Character character : this.characters) {
+                PyramidProcessor.closePyramid(character.getId());
+            }
+        }
+    }
+
+    public void kill(Monster monster) {
+        totalKills++;
+        synchronized (this.characters) {
+            for (Character character : this.characters) {
+                character.sendPacket(PacketCreator.getEnergy("massacre_hit", totalKills));
+                // TODO: the totalKills for pyramidGauge needs to be capped based on how much time has elapsed
+                character.sendPacket(PacketCreator.pyramidGauge(totalKills));
+            }
+        }
+    }
+
+    public boolean checkCharactersArePresent() {
+        synchronized (this.characters) {
+            for (Character character : this.characters) {
+                if (character.getMap().getId() != ENTRANCE_MAP_ID) {
+                    return false;
                 }
-
-            }, 1000);
-        }
-    }
-
-    public void kill() {
-        kill++;
-        if (gauge < 100) {
-            count++;
-        }
-        gauge++;
-        broadcastInfo("hit", kill);
-        if (gauge >= 100) {
-            gauge = 100;
-        }
-        checkBuffs();
-    }
-
-    public void cool() {
-        cool++;
-        int plus = coolAdd;
-        if ((gauge + coolAdd) > 100) {
-            plus -= ((gauge + coolAdd) - 100);
-        }
-        gauge += plus;
-        count += plus;
-        if (gauge >= 100) {
-            gauge = 100;
-        }
-        broadcastInfo("cool", cool);
-        checkBuffs();
-
-    }
-
-    public void miss() {
-        miss++;
-        count -= missSub;
-        gauge -= missSub;
-        broadcastInfo("miss", miss);
-    }
-
-    public int timer() {
-        int value;
-        if (stage > 0) {
-            value = 180;
-        } else {
-            value = 120;
+            }
         }
 
-        timer = TimerManager.getInstance().schedule(() -> {
-            stage++;
-            warp(map + (stage * 100));//Should work :D
-        }, SECONDS.toMillis(value));//, 4000
-        broadcastInfo("party", getParticipants().size() > 1 ? 1 : 0);
-        broadcastInfo("hit", kill);
-        broadcastInfo("miss", miss);
-        broadcastInfo("cool", cool);
-        broadcastInfo("skill", skill);
-        broadcastInfo("laststage", stage);
-        startGaugeSchedule();
-        return value;
-    }
-
-    public void warp(int mapid) {
-        for (Character chr : getParticipants()) {
-            chr.changeMap(mapid, 0);
-        }
-        if (stage > -1) {
-            gaugeSchedule.cancel(false);
-            gaugeSchedule = null;
-            timer.cancel(false);
-            timer = null;
-        } else {
-            stage = 0;
-        }
-    }
-
-    public void broadcastInfo(String info, int amount) {
-        for (Character chr : getParticipants()) {
-            chr.sendPacket(PacketCreator.getEnergy("massacre_" + info, amount));
-            chr.sendPacket(PacketCreator.pyramidGauge(count));
-        }
-    }
-
-    public boolean useSkill() {
-        if (skill < 1) {
-            return false;
-        }
-
-        skill--;
-        broadcastInfo("skill", skill);
         return true;
     }
 
-    public void checkBuffs() {
-        int total = (kill + cool);
-        if (buffcount == 0 && total >= 250) {
-            buffcount++;
-            ItemInformationProvider ii = ItemInformationProvider.getInstance();
-            for (Character chr : getParticipants()) {
-                ii.getItemEffect(ItemId.PHARAOHS_BLESSING_1).applyTo(chr);
+    public boolean checkCharacterLevels() {
+        synchronized (this.characters) {
+            for (Character character : this.characters) {
+                if (character.getLevel() < getMinLevel() || character.getLevel() > getMaxLevel()) {
+                    return false;
+                }
             }
-
-        } else if (buffcount == 1 && total >= 500) {
-            buffcount++;
-            skill++;
-            ItemInformationProvider ii = ItemInformationProvider.getInstance();
-            for (Character chr : getParticipants()) {
-                chr.sendPacket(PacketCreator.getEnergy("massacre_skill", skill));
-                ii.getItemEffect(ItemId.PHARAOHS_BLESSING_2).applyTo(chr);
-            }
-        } else if (buffcount == 2 && total >= 1000) {
-            buffcount++;
-            skill++;
-            ItemInformationProvider ii = ItemInformationProvider.getInstance();
-            for (Character chr : getParticipants()) {
-                chr.sendPacket(PacketCreator.getEnergy("massacre_skill", skill));
-                ii.getItemEffect(ItemId.PHARAOHS_BLESSING_3).applyTo(chr);
-            }
-        } else if (buffcount == 3 && total >= 1500) {
-            skill++;
-            broadcastInfo("skill", skill);
-        } else if (buffcount == 4 && total >= 2000) {
-            buffcount++;
-            skill++;
-            ItemInformationProvider ii = ItemInformationProvider.getInstance();
-            for (Character chr : getParticipants()) {
-                chr.sendPacket(PacketCreator.getEnergy("massacre_skill", skill));
-                ii.getItemEffect(ItemId.PHARAOHS_BLESSING_4).applyTo(chr);
-            }
-        } else if (buffcount == 5 && total >= 2500) {
-            skill++;
-            broadcastInfo("skill", skill);
-        } else if (buffcount == 6 && total >= 3000) {
-            skill++;
-            broadcastInfo("skill", skill);
         }
+
+        return true;
     }
 
-    public void sendScore(Character chr) {
-        if (exp == 0) {
-            int totalkills = (kill + cool);
-            if (stage == 5) {
-                if (totalkills >= 3000) {
-                    rank = 0;
-                } else if (totalkills >= 2000) {
-                    rank = 1;
-                } else if (totalkills >= 1500) {
-                    rank = 2;
-                } else if (totalkills >= 500) {
-                    rank = 3;
-                } else {
-                    rank = 4;
-                }
-            } else {
-                if (totalkills >= 2000) {
-                    rank = 3;
-                } else {
-                    rank = 4;
-                }
-            }
+    public int getMinLevel() {
+        return switch (this.difficulty) {
+            case EASY -> 40;
+            case NORMAL -> 46;
+            case HARD -> 51;
+            case HELL -> 61;
+        };
+    }
 
-            if (rank == 0) {
-                exp = (60500 + (5500 * mode.getMode()));
-            } else if (rank == 1) {
-                exp = (55000 + (5000 * mode.getMode()));
-            } else if (rank == 2) {
-                exp = (46750 + (4250 * mode.getMode()));
-            } else if (rank == 3) {
-                exp = (22000 + (2000 * mode.getMode()));
-            }
+    public int getMaxLevel() {
+        return switch (this.difficulty) {
+            case EASY, NORMAL, HARD -> 60;
+            case HELL -> 200;
+        };
+    }
 
-            exp += ((kill * 2) + (cool * 10));
+    public int getTotalTime() {
+        return switch (this.currentStage) {
+            case 1 -> 180;
+            default -> 120;
+        };
+    }
+
+    public MapleMap getMap(int id) {
+        synchronized (this.characters) {
+            Character character = this.characters.get(0);
+
+            // TODO: This is hacky... but for now it's the easiest way to create our own MapManager
+            Channel cs = Server.getInstance().getWorld(character.getWorld()).getChannel(character.getClient().getChannel());
+
+            return cs.getMapFactory().getDisposableMap(id);
         }
-        chr.sendPacket(PacketCreator.pyramidScore(rank, exp));
-        chr.gainExp(exp, true, true);
     }
 }
 

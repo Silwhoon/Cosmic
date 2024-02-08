@@ -131,6 +131,7 @@ public class LifeFactory {
         stats.setBuffToGive(DataTool.getIntConvert("buff", monsterInfoData, stats.getBuffToGive()));
         stats.setCP(DataTool.getIntConvert("getCP", monsterInfoData, stats.getCP()));
         stats.setRemoveOnMiss(DataTool.getIntConvert("removeOnMiss", monsterInfoData, stats.removeOnMiss() ? 1 : 0) > 0);
+        stats.setCoolDamageProb(DataTool.getIntConvert("coolDamageProb", monsterInfoData, 0));
 
         Data special = monsterInfoData.getChildByPath("coolDamage");
         if (special != null) {

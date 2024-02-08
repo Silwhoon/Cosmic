@@ -1,6 +1,6 @@
 package server.partyquest.pyramid;
 
-public enum PyramidMode {
+public enum PyramidDifficulty {
     EASY(0),
     NORMAL(1),
     HARD(2),
@@ -8,11 +8,15 @@ public enum PyramidMode {
 
     final int mode;
 
-    PyramidMode(int mode) {
+    PyramidDifficulty(int mode) {
         this.mode = mode;
     }
 
     public int getMode() {
         return mode;
+    }
+
+    public static PyramidDifficulty getById(int id) {
+        return PyramidDifficulty.values()[id];
     }
 }

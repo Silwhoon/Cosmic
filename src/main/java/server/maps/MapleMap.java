@@ -58,6 +58,8 @@ import server.life.LifeFactory.selfDestruction;
 import server.partyquest.CarnivalFactory;
 import server.partyquest.CarnivalFactory.MCSkill;
 import server.partyquest.GuardianSpawnPoint;
+import server.partyquest.pyramid.Pyramid;
+import server.partyquest.pyramid.PyramidProcessor;
 import tools.PacketCreator;
 import tools.Pair;
 import tools.Randomizer;
@@ -1397,6 +1399,11 @@ public class MapleMap {
 
                     if (monster.getCP() > 0 && chr.getMap().isCPQMap()) {
                         chr.gainCP(monster.getCP());
+                    }
+
+                    Pyramid pyramid = PyramidProcessor.getPyramidForCharacter(chr.getId());
+                    if (pyramid != null) {
+                        pyramid.kill(monster);
                     }
 
                     int buff = monster.getBuffToGive();
