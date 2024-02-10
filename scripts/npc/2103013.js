@@ -149,6 +149,8 @@ function pyramidDunesAction(mode, type, selection) {
                     if (cm.haveItem(requiredId)) {
                         if (!cm.getPlayer().startPyramidBonus(selection)) {
                             cm.sendOk("Something went wrong");
+                        } else {
+                            cm.gainItem(requiredId, -1);
                         }
                     } else {
                         // TODO: Find GMS-like text for this

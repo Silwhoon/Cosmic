@@ -393,9 +393,8 @@ public class Pyramid {
 
     public int getStageTimeInSeconds() {
         return switch (this.currentStage) {
-//            case 0, 1 -> 120;
-//            default -> 180;
-            default -> 15;
+            case 0, 1 -> 120;
+            default -> 180;
         };
     }
 
