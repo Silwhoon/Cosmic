@@ -7,7 +7,6 @@ public class PyramidCharacterStats {
     private int totalMisses;
     private int totalCools;
     private PyramidRank rank = PyramidRank.C;
-    private int exp;
     private int skillUses;
 
     public PyramidCharacterStats(PyramidDifficulty difficulty) {
@@ -76,7 +75,7 @@ public class PyramidCharacterStats {
 
     public int getMaxSkillUses() {
         int total = totalHits + totalCools;
-        return total / 500;
+        return Math.min(total / 500, 6); // Capped at 6 skills per PQ
     }
 
     public int getAvailableSkillUses() {
