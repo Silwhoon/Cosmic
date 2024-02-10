@@ -569,7 +569,6 @@ public class Pyramid {
         return map;
     }
 
-    // TODO: broadcast stage number at the start of each stage
     public void broadCastStageInfo(Character character) {
         character.sendPacket(PacketCreator.mapEffect("killing/first/stage"));
         character.sendPacket(PacketCreator.mapEffect("killing/first/number/" + currentStage));
