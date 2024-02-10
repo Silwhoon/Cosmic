@@ -399,7 +399,7 @@ public class Pyramid {
     public void hitMonster(Character character, Monster monster, int damage) {
         // If the damage is 0, then the player has missed
         if (damage == 0) {
-            missMonster(character, monster);
+            missMonster(character);
             return;
         }
 
@@ -451,8 +451,7 @@ public class Pyramid {
         broadcastInfo(character, "cool", character.getPyramidCharacterStats().getTotalCools());
     }
 
-    // TODO: Implement misses
-    private void missMonster(Character character, Monster monster) {
+    private void missMonster(Character character) {
         character.getPyramidCharacterStats().addMisses(1);
         character.getPyramidCharacterStats().calculateRank();
         gauge -= missSub;

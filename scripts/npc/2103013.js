@@ -139,9 +139,9 @@ function pyramidDunesAction(mode, type, selection) {
                     break;
                 case ENTER_THE_PYRAMID:
                     if (selection === 1) {
-                        if (cm.getParty() == null || cm.getParty().getMembers().size() < 1) {
+                        if (cm.getParty() == null || cm.getParty().getMembers().size() < 2 || cm.getParty().getMembers().size() > 4) {
                             // TODO: Get the GMS-like text for this
-                            cm.sendOk("You are not currently in a party with at least 2 members.");
+                            cm.sendOk("You are not currently in a party with between 2 and 4 members.");
                             cm.dispose();
                             return;
                         }
