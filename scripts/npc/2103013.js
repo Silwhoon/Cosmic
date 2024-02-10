@@ -252,6 +252,7 @@ function pyramidBonusAction(mode, type, selection) {
             return;
         }
 
+        var difficulty = cm.getPlayer().getPyramidCharacterStats().getDifficulty().getMode();
         if (status === 0) {
             str = "Stop! You've successfully passed Nett's test. By Nett's grace, you will now be given the opportunity to enter Pharaoh Yeti's Tomb. Do you wish to enter it now?\r\n\r\n#b";
             str += "#L0#Yes, I will go now#l\r\n";
@@ -259,7 +260,7 @@ function pyramidBonusAction(mode, type, selection) {
             cm.sendSimple(str);
         } else if (status === 1) {
             if (selection === 0) {
-                if (!cm.getPlayer().startPyramidBonus()) {
+                if (!cm.getPlayer().startPyramidBonus(difficulty)) {
                     cm.sendOk("Something went wrong..");
                 }
                 cm.dispose();
@@ -268,7 +269,6 @@ function pyramidBonusAction(mode, type, selection) {
             }
         } else if (status === 2) {
             var jewelId = -1;
-            var difficulty = cm.getPlayer().getPyramidCharacterStats().getDifficulty().getMode();
             switch (difficulty) {
                 case 0: // EASY
                     jewelId = 4001322;
