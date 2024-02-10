@@ -28,13 +28,10 @@ import net.server.channel.Channel;
 import net.server.world.Party;
 import net.server.world.PartyCharacter;
 import server.TimerManager;
-import server.life.LifeFactory;
 import server.life.Monster;
 import server.maps.MapleMap;
 import tools.PacketCreator;
 
-import java.awt.*;
-import java.util.List;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 
@@ -48,21 +45,16 @@ public class Pyramid {
 
     private static final int ENTRANCE_MAP_ID = 926010000;
     private static final int END_MAP_ID = 926010001;
-    private static final int EXIT_MAP_ID = 926020001;
-    // TODO: There is also another bonus (926010010) Although I dont know why.. its exactly the same
-    private static final int BONUS_MAP_ID = 926010010;
 
+    private int world = -1;
+    private int channel = -1;
     private final PyramidDifficulty difficulty;
     private final boolean solo;
     private final List<Character> characters = new ArrayList<>();
     private final Map<Integer, MapleMap> maps = new HashMap<>();
     private int gauge;
     private int counter = 0;
-    private int currentStage;
-    private PyramidRank currentRank = PyramidRank.C;
-    private int totalKills = 0; // TODO: This needs to be seperated between all party members
-    private int totalMisses = 0; // TODO: This needs to be seperated between all party members
-    private int totalCools = 0; // TODO: This needs to be seperated between all party members
+    private int currentStage = 0;
     private int coolAdd;
     private int decrease;
     private int hitAdd;
@@ -70,7 +62,7 @@ public class Pyramid {
     private int total;
     private ScheduledFuture<?> stageTimer = null;
     private ScheduledFuture<?> coreTimer = null;
-
+    private ScheduledFuture<?> respawnTimer = null;
 
     protected Pyramid(Character soloCharacter, PyramidDifficulty difficulty) {
         this.difficulty = difficulty;
@@ -89,10 +81,37 @@ public class Pyramid {
         }
     }
 
+    private void warpToEnd(Character character) {
+        // Remove the character from the PQ, and remove their instance reference to the PQ
+        removeCharacter(character);
+
+        // If they are dead, respawn them in the main map
+        if (!character.isAlive()) {
+            character.respawn(ENTRANCE_MAP_ID);
+            return;
+        }
+
+        // Otherwise move them to the end map
+        character.changeMap(END_MAP_ID);
+    }
+
+    private List<Character> getCharacters() {
+        synchronized (this.characters) {
+            return Collections.unmodifiableList(this.characters);
+        }
+    }
+
     private void addCharacter(Character character) {
+        // If the world and channel aren't set, set it to whatever the first player's world/channel is
+        // The ONLY reason we need this is because of how MapManager works..
+        if (world == -1) world = character.getWorld();
+        if (channel == -1) channel = character.getClient().getChannel();
+
         synchronized (this.characters) {
             this.characters.add(character);
         }
+
+        character.setPyramidCharacterStats(new PyramidCharacterStats(this.difficulty));
     }
 
     private void removeCharacter(Character character) {
@@ -104,44 +123,97 @@ public class Pyramid {
     }
 
     public void start() {
-        synchronized (this.characters) {
-            for (Character character : this.characters) {
-                PyramidProcessor.registerPyramid(character.getId(), this);
-            }
+        for (Character character : getCharacters()) {
+            PyramidProcessor.registerPyramid(character.getId(), this);
+
+            broadcastInfo(character, "party", solo ? 0 : 1);
+            broadcastInfo(character, "hit", 0);
+            broadcastInfo(character, "miss", 0);
+            broadcastInfo(character, "cool", 0);
+            broadcastInfo(character, "skill", 0);
+            broadcastInfo(character, "laststage", 1);
         }
 
-        broadcastInfo("party", solo ? 0 : 1);
-        broadcastInfo("hit", 0);
-        broadcastInfo("miss", 0);
-        broadcastInfo("cool", 0);
-        broadcastInfo("skill", 0);
-        broadcastInfo("laststage", 1);
-
-        currentStage = 1;
-
-        // Begin stage 1
-        warpAllToNextStage();
+        startNextStage();
     }
 
-    public void leave(Character character) {
-        removeCharacter(character);
+    private void complete() {
+        if (stageTimer != null) {
+            stageTimer.cancel(true);
+            stageTimer = null;
+        }
+        if (coreTimer != null) {
+            coreTimer.cancel(true);
+            coreTimer = null;
+        }
+        if (respawnTimer != null) {
+            respawnTimer.cancel(true);
+            respawnTimer = null;
+        }
 
-        synchronized (this.characters) {
-            if (this.characters.size() < 2 && !solo) {
-                fail();
-            }
+        List<Character> charactersToRemove = new ArrayList<>(getCharacters());
+        for (Character character : charactersToRemove) {
+            warpToEnd(character);
         }
     }
 
-    public void fail() {
-        if (stageTimer != null) stageTimer.cancel(true);
-        if (coreTimer != null) coreTimer.cancel(true);
-        this.currentRank = PyramidRank.D;
-        synchronized (this.characters) {
-            for (Character character : this.characters) {
-                character.changeMap(END_MAP_ID);
+    public void fail(Character character) {
+        // Set the characters rank to D
+        character.getPyramidCharacterStats().setRank(PyramidRank.D);
+
+        // Warp them to the end map
+        warpToEnd(character);
+    }
+
+    public void failAllCharacters() {
+        List<Character> charactersToRemove = new ArrayList<>(getCharacters());
+        for (Character character : charactersToRemove) {
+            fail(character);
+        }
+    }
+
+    private void startNextStage() {
+        // Increment stage counter
+        currentStage++;
+
+        // If the stage is above 5, then the PQ has been successfully completed. Warp them all!
+        if (currentStage > 5) {
+            complete();
+            return;
+        }
+
+        // Set all the relevant map stats ready for the next stage
+        coolAdd = getMap(getCurrentMapId()).getPyramidInfo().getCoolAdd();
+        decrease = getMap(getCurrentMapId()).getPyramidInfo().getDecrease();
+        hitAdd = getMap(getCurrentMapId()).getPyramidInfo().getHitAdd();
+        missSub = getMap(getCurrentMapId()).getPyramidInfo().getMissSub();
+        total = getMap(getCurrentMapId()).getPyramidInfo().getTotal();
+        gauge = total;
+        counter = 0;
+
+        List<Character> charactersToRemove = new ArrayList<>();
+
+        // Move players into the map
+        for (Character character : getCharacters()) {
+            // If the character died during the stage, we warp them out
+            if (!character.isAlive()) {
+                charactersToRemove.add(character);
+            } else {
+                character.changeMap(getCurrentMapId());
+                character.sendPacket(PacketCreator.getClock(getStageTimeInSeconds()));
             }
         }
+
+        // Remove the dead players
+        for (Character character : charactersToRemove) {
+            warpToEnd(character);
+        }
+
+        // TODO: Display stage number effect here
+        // Start the relevant timers for the stage
+        startStageTimer();
+        startCoreTimer();
+        startRespawnTimer();
     }
 
     private void startStageTimer() {
@@ -153,14 +225,19 @@ public class Pyramid {
         stageTimer = TimerManager.getInstance().schedule(() -> {
             // Stop the core timer, warpAllToNextStage will restart it again
             if (coreTimer != null) {
-                coreTimer.cancel(false);
+                coreTimer.cancel(true);
                 coreTimer = null;
             }
 
-            // Increment stage and then warp all players to new stage
-            currentStage++;
-            warpAllToNextStage();
-        }, SECONDS.toMillis(getTotalTime()));
+            // Also stop the respawn timer, warpAllToNextStage will restart it again
+            if (respawnTimer != null) {
+                respawnTimer.cancel(true);
+                respawnTimer = null;
+            }
+
+            // Warp all players to new stage
+            startNextStage();
+        }, SECONDS.toMillis(getStageTimeInSeconds()));
     }
 
     private void startCoreTimer() {
@@ -168,86 +245,57 @@ public class Pyramid {
         coreTimer = TimerManager.getInstance().register(() -> {
             gauge -= decrease;
             if (gauge <= 0) {
-                fail();
+                failAllCharacters();
             }
         }, SECONDS.toMillis(1));
     }
 
-    private void startBonusTimer(Character character) {
-        TimerManager.getInstance().schedule(() -> {
-            if (isBonusMap(character.getMap().getId())) {
-                character.changeMap(ENTRANCE_MAP_ID);
-            }
-
-            removeCharacter(character);
-        }, SECONDS.toMillis(60));
+    private void startRespawnTimer() {
+        // TODO: Find GMS-like respawn rates.
+        //  Every video I watch the mobs begin spawning around 9-10 secs from when the stage starts and then spawn every
+        //  3-5 ish seconds. But in the WZ files there is a 'createMobInterval' node that is set to 3000 (I'm assuming milliseconds)
+        respawnTimer = TimerManager.getInstance().register(() -> {
+            getMap(getCurrentMapId()).respawn();
+        }, SECONDS.toMillis(3), SECONDS.toMillis(10));
     }
 
-    public void startBonus(Character character) {
-        character.changeMap(BONUS_MAP_ID);
-
-        int monsterId = this.difficulty.equals(PyramidDifficulty.HELL) ? 9700029 : 9700019;
-        int numberOfMonsters = switch (this.difficulty) {
-            case EASY -> 30;
-            case NORMAL -> 40;
-            case HARD, HELL -> 50;
-        };
-
-        Point topLeft = new Point(-361, -115);
-        Point topRight = new Point(352, -115);
-        Point bottomMiddle = new Point(4, 125);
-
-        for (int i = 0; i < (numberOfMonsters / 3); i++) {
-            character.getMap().spawnMonsterOnGroundBelow(LifeFactory.getMonster(monsterId), topLeft);
+    public void leaveParty(Character character) {
+        // Leaving the party only matters if the PQ was setup as a party PQ and not a solo one
+        if (!solo) {
+            fail(character);
         }
-        for (int i = 0; i < (numberOfMonsters / 3); i++) {
-            character.getMap().spawnMonsterOnGroundBelow(LifeFactory.getMonster(monsterId), topRight);
-        }
-        for (int i = 0; i < (numberOfMonsters / 3); i++) {
-            character.getMap().spawnMonsterOnGroundBelow(LifeFactory.getMonster(monsterId), bottomMiddle);
-        }
-        if (numberOfMonsters % 3 != 0) {
-            for (int i = 0; i < (numberOfMonsters % 3); i++) {
-                character.getMap().spawnMonsterOnGroundBelow(LifeFactory.getMonster(monsterId), bottomMiddle);
-            }
-        }
-
-        startBonusTimer(character);
     }
 
-    public void skipBonus(Character character) {
-        // TODO: Check to make sure the player can hold the ETC item
-        // TODO: Give relevant gem
-        leave(character);
+    public void disbandParty() {
+        // Disbanding the party only matters if the PQ was setup as a party PQ and not a solo one
+        if (!solo) {
+            failAllCharacters();
+        }
     }
 
-    private void warpAllToNextStage() {
-        coolAdd = getMap(getCurrentMap()).getPyramidInfo().getCoolAdd();
-        decrease = getMap(getCurrentMap()).getPyramidInfo().getDecrease();
-        hitAdd = getMap(getCurrentMap()).getPyramidInfo().getHitAdd();
-        missSub = getMap(getCurrentMap()).getPyramidInfo().getMissSub();
-        total = getMap(getCurrentMap()).getPyramidInfo().getTotal();
-        gauge = total;
-        counter = 0;
-
-        synchronized (this.characters) {
-            for (Character character : this.characters) {
-                character.changeMap(getCurrentMap());
-            }
-        }
-
-        if (currentStage <= 5) {
-            startCoreTimer();
-            startStageTimer();
-        }
-
-        // TODO: Re-calc rank here?
+    public void playerDead(Character character) {
+        // When the player dies, their rank must be set to D
+        character.getPyramidCharacterStats().setRank(PyramidRank.D);
     }
 
-    private int getCurrentMap() {
-        // There are only 5 stages
-        if (currentStage == 6) return END_MAP_ID;
+    public boolean revivePlayer(Character character) {
+        // When the player revives after dying, remove them from the PQ and warp them to the end map
+        warpToEnd(character);
+        return false;
+    }
 
+    public void forfeitChallenge(Character character) {
+        // This is called when the player manually selects that they wish to 'Forfeit the Challenge' while inside the PQ
+        // Set their rank to D and warp to the end map
+        fail(character);
+    }
+
+    public void playerDisconnected(Character character) {
+        // If the player disconnects, remove from from the PQ and remove their reference to this instance
+        removeCharacter(character);
+    }
+
+    private int getCurrentMapId() {
         int mapId = 926010000;
         if (!solo) {
             mapId += 10000;
@@ -259,28 +307,31 @@ public class Pyramid {
         return mapId;
     }
 
-    public void hitMonster(Character killedBy, Monster monster, int damage) {
-        totalKills++;
+    public void hitMonster(Character character, Monster monster, int damage) {
+        character.getPyramidCharacterStats().addHits(1);
+        character.getPyramidCharacterStats().calculateRank();
         if (gauge < total) {
             counter++;
         }
         gauge += hitAdd;
 
-        broadcastInfo("hit", totalKills);
+        broadcastInfo(character, "hit", character.getPyramidCharacterStats().getTotalHits());
         if (gauge >= total) {
             gauge = total;
         }
 
+        // Check if the hit proc'd a 'Cool' effect
         if (damage >= monster.getStats().getCoolDamage()) {
             int rand = (new Random().nextInt(100) + 1);
             if (rand <= monster.getStats().getCoolDamageProb()) {
-                coolProc();
+                coolProc(character);
             }
         }
     }
 
-    private void coolProc() {
-        totalCools++;
+    private void coolProc(Character character) {
+        character.getPyramidCharacterStats().addCools(1);
+        character.getPyramidCharacterStats().calculateRank();
         int plus = coolAdd;
         if ((gauge + coolAdd) > total) {
             plus -= ((gauge + coolAdd) - total);
@@ -290,23 +341,24 @@ public class Pyramid {
         if (gauge >= total) {
             gauge = total;
         }
-        broadcastInfo("cool", totalCools);
+        broadcastInfo(character, "cool", character.getPyramidCharacterStats().getTotalCools());
     }
 
     // TODO: Implement misses
-    public void missMonster(Character missedBy, Monster monster) {
-        totalMisses++;
+    public void missMonster(Character character, Monster monster) {
+        character.getPyramidCharacterStats().addMisses(1);
+        character.getPyramidCharacterStats().calculateRank();
         gauge -= missSub;
 
-        broadcastInfo("miss", totalMisses);
+        broadcastInfo(character, "miss", character.getPyramidCharacterStats().getTotalMisses());
     }
 
     public boolean checkCharactersArePresent() {
-        synchronized (this.characters) {
-            for (Character character : this.characters) {
-                if (character.getMap().getId() != ENTRANCE_MAP_ID) {
-                    return false;
-                }
+        for (Character character : getCharacters()) {
+            if (character.getWorld() != world ||
+                    character.getClient().getChannel() != channel ||
+                    character.getMap().getId() != ENTRANCE_MAP_ID) {
+                return false;
             }
         }
 
@@ -314,23 +366,13 @@ public class Pyramid {
     }
 
     public boolean checkCharacterLevels() {
-        synchronized (this.characters) {
-            for (Character character : this.characters) {
-                if (character.getLevel() < getMinLevel() || character.getLevel() > getMaxLevel()) {
-                    return false;
-                }
+        for (Character character : getCharacters()) {
+            if (character.getLevel() < getMinLevel() || character.getLevel() > getMaxLevel()) {
+                return false;
             }
         }
 
         return true;
-    }
-
-    public boolean checkIfFailed() {
-        return this.currentRank.equals(PyramidRank.D);
-    }
-
-    private boolean isBonusMap(int id) {
-        return id == 926010010 || id == 926010070;
     }
 
     public int getMinLevel() {
@@ -349,11 +391,10 @@ public class Pyramid {
         };
     }
 
-    public int getTotalTime() {
+    public int getStageTimeInSeconds() {
         return switch (this.currentStage) {
-//            case 0, 1 -> 120;
-//            default -> 180;
-            default -> 10;
+            case 0, 1 -> 120;
+            default -> 180;
         };
     }
 
@@ -362,62 +403,33 @@ public class Pyramid {
             return this.maps.get(id);
         }
 
-        synchronized (this.characters) {
-            Character character = this.characters.get(0); // Doesn't matter which one we get
+        Channel cs = Server.getInstance().getWorld(world).getChannel(channel);
 
-            // TODO: This is hacky... but for now it's the easiest way to get a MapManager
-            Channel cs = Server.getInstance().getWorld(character.getWorld()).getChannel(character.getClient().getChannel());
+        // Get a fresh map
+        MapleMap map = cs.getMapFactory().getDisposableMap(id);
 
-            // Get a fresh map
-            MapleMap map = cs.getMapFactory().getDisposableMap(id);
-
-            // We always want a completely fresh bonus map, so don't save it
-            if (!isBonusMap(id)) {
-                this.maps.put(id, map);
-            }
-
-            return map;
+        // Kill all monsters
+        for (Monster monster : map.getAllMonsters()) {
+            map.killMonster(monster, null, false);
         }
+
+        this.maps.put(id, map);
+
+        return map;
     }
 
-    public void broadcastInfo(String info, int amount) {
+    // TODO: broadcast stage number at the start of each stage
+
+    public void broadcastInfo(Character character, String info, int amount) {
+        character.sendPacket(PacketCreator.getEnergy("massacre_" + info, amount));
+        broadcastGauge();
+    }
+
+    private void broadcastGauge() {
         synchronized (this.characters) {
             for (Character character : this.characters) {
-                character.sendPacket(PacketCreator.getEnergy("massacre_" + info, amount));
                 character.sendPacket(PacketCreator.pyramidGauge(counter));
             }
         }
     }
-
-    public void broadcastScore(Character character) {
-        // TODO: Find GMS-like ranking formula
-        int totalScore = (totalKills + totalCools - totalMisses);
-        if (!this.checkIfFailed()) {
-            if (totalScore >= 3000) this.currentRank = PyramidRank.S;
-            else if (totalScore >= 2000) this.currentRank = PyramidRank.A;
-            else if (totalScore >= 1000) this.currentRank = PyramidRank.B;
-            else this.currentRank = PyramidRank.C;
-        }
-
-        // S: 3649 hits, 208 cool, 27 miss (86378 exp - 1 person - HELL)
-        // S: 3399 hits, 208 cool, 101 miss (69378 exp - 1 person - HARD)
-        // S: 3347 hits, 197 cool, 113 miss (89596 exp - 3 people - NORMAL)
-        // S: 3275 hits, 186 cool, 7 miss (79910 exp - 1 person - EASY, NORMAL or HARD?)
-        // A: 2491 hits, 0 cool, 15 miss (59982 - 1 person - EASY)
-        // A: 2430 hits, 69 cool, 10 miss (60550 - 1 person - EASY)
-        // A: 2124 hits, 146 cool, 52 miss (60709 - 1 person - EASY)
-
-        // TODO: Find GMS-like exp formula
-        int exp = (totalKills * 20) + (totalCools * 100);
-        if (this.currentRank.equals(PyramidRank.S)) exp += (5500 * this.difficulty.getMode());
-        if (this.currentRank.equals(PyramidRank.A)) exp += (5000 * this.difficulty.getMode());
-        if (this.currentRank.equals(PyramidRank.B)) exp += (4250 * this.difficulty.getMode());
-        if (this.currentRank.equals(PyramidRank.C)) exp += (2000 * this.difficulty.getMode());
-        if (this.currentRank.equals(PyramidRank.D)) exp /= 5;
-
-        character.sendPacket(PacketCreator.pyramidScore(this.currentRank.code, exp));
-        character.gainExp(exp, true, true);
-    }
 }
-
-

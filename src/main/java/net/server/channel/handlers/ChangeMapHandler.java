@@ -103,7 +103,7 @@ public final class ChangeMapHandler extends AbstractPacketHandler {
                             executeStandardPath = chr.getEventInstance().revivePlayer(chr);
                         }
                         if (PyramidProcessor.getPyramidForCharacter(chr.getId()) != null) {
-                            PyramidProcessor.getPyramidForCharacter(chr.getId()).leave(chr);
+                            executeStandardPath = PyramidProcessor.getPyramidForCharacter(chr.getId()).revivePlayer(chr);
                         }
                         if (executeStandardPath) {
                             chr.respawn(map.getReturnMapId());

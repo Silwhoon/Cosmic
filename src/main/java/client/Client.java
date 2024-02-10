@@ -926,7 +926,7 @@ public class Client extends ChannelInboundHandlerAdapter {
                 }
 
                 if (PyramidProcessor.getPyramidForCharacter(player.getId()) != null) {
-                    PyramidProcessor.getPyramidForCharacter(player.getId()).leave(player);
+                    PyramidProcessor.getPyramidForCharacter(player.getId()).playerDisconnected(player);
                 }
 
                 if (player.getAriantColiseum() != null) {

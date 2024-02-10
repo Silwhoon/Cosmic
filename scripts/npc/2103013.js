@@ -145,8 +145,14 @@ function pyramidDunesAction(mode, type, selection) {
                     cm.sendSimple(str);
                     break;
                 case ENTER_PHARAOH_YETIS_TOMB:
-                    if (selection === 0) {
-                        // TODO: Handle gem bonus stuff here
+                    var requiredId = 4001322 + selection;
+                    if (cm.haveItem(requiredId)) {
+                        if (!cm.getPlayer().startPyramidBonus(selection)) {
+                            cm.sendOk("Something went wrong");
+                        }
+                    } else {
+                        // TODO: Find GMS-like text for this
+                        cm.sendOk("You do not have a jewel of this type.");
                     }
                     cm.dispose();
                     break;
@@ -239,10 +245,8 @@ function pyramidBonusAction(mode, type, selection) {
             status--;
         }
 
-        const PyramidProcessor = Java.type('server.partyquest.pyramid.PyramidProcessor');
-        var pyramid = PyramidProcessor.getPyramidForCharacter(cm.getPlayer().getId());
-
-        if (pyramid == null || pyramid.checkIfFailed()) {
+        var pyramidCharacterStats = cm.getPlayer().getPyramidCharacterStats();
+        if (pyramidCharacterStats == null || pyramidCharacterStats.getRank().getCode() === 4) {
             cm.warp(PYRAMID_DUNES);
             cm.dispose();
             return;
@@ -255,13 +259,39 @@ function pyramidBonusAction(mode, type, selection) {
             cm.sendSimple(str);
         } else if (status === 1) {
             if (selection === 0) {
-                pyramid.startBonus(cm.getPlayer());
+                if (!cm.getPlayer().startPyramidBonus()) {
+                    cm.sendOk("Something went wrong..");
+                }
                 cm.dispose();
             } else if (selection === 1) {
                 cm.sendNext("I will give you Pharaoh Yeti's Gem. You will be able to enter Pharaoh Yeti's Tomb anytime with this Gem. Check to see if you have at least 1 empty slot in your Etc window.");
             }
         } else if (status === 2) {
-            pyramid.skipBonus(cm.getPlayer());
+            var jewelId = -1;
+            var difficulty = cm.getPlayer().getPyramidCharacterStats().getDifficulty().getMode();
+            switch (difficulty) {
+                case 0: // EASY
+                    jewelId = 4001322;
+                    break;
+                case 1: // NORMAL
+                    jewelId = 4001323;
+                    break;
+                case 2: // HARD
+                    jewelId = 4001324;
+                    break;
+                case 3: // HELL
+                    jewelId = 4001325;
+                    break;
+            }
+
+            if (!cm.canHold(jewelId, 1)) {
+                cm.sendOk("Please make sure you have enough space in your Etc inventory.");
+                cm.dispose();
+                return;
+            }
+            cm.getPlayer().setPyramidCharacterStats(null);
+            cm.warp(PYRAMID_DUNES);
+            cm.gainItem(jewelId, 1);
             cm.dispose();
         }
     }
@@ -295,8 +325,7 @@ function pyramidForfeitAction(mode, type, selection) {
             str += "#L0# Leave#l\r\n";
             cm.sendSimple(str);
         } else if (status === 1) {
-            pyramid.leave();
-            cm.warp(PYRAMID_DUNES);
+            pyramid.forfeitChallenge(cm.getPlayer());
             cm.dispose();
         }
     }

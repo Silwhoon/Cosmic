@@ -315,7 +315,7 @@ public class MapFactory {
         map.setBoat(mapData.getChildByPath("shipObj") != null);
         map.setTimeLimit(DataTool.getIntConvert("timeLimit", infoData, -1));
         map.setFieldType(DataTool.getIntConvert("fieldType", infoData, 0));
-        map.setMobCapacity(DataTool.getIntConvert("fixedMobCapacity", infoData, 500));//Is there a map that contains more than 500 mobs?
+        map.setMobCapacity(DataTool.getIntConvert("fixedMobCapacity", infoData, -1));
 
         Data recData = infoData.getChildByPath("recovery");
         if (recData != null) {

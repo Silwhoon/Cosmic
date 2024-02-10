@@ -12,4 +12,8 @@ public enum PyramidRank {
     PyramidRank(byte code) {
         this.code = code;
     }
+
+    public byte getCode() {
+        return this.code;
+    }
 }

@@ -405,7 +405,7 @@ public class Party {
                 }
 
                 if (PyramidProcessor.getPyramidForCharacter(player.getId()) != null) {
-                    PyramidProcessor.getPyramidForCharacter(player.getId()).fail();
+                    PyramidProcessor.getPyramidForCharacter(player.getId()).disbandParty();
                 }
             } else {
                 MapleMap map = player.getMap();
@@ -426,7 +426,7 @@ public class Party {
                 }
 
                 if (PyramidProcessor.getPyramidForCharacter(player.getId()) != null) {
-                    PyramidProcessor.getPyramidForCharacter(player.getId()).leave(player);
+                    PyramidProcessor.getPyramidForCharacter(player.getId()).leaveParty(player);
                 }
             }
 

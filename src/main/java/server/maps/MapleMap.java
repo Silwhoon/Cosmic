@@ -3584,6 +3584,10 @@ public class MapleMap {
     }
 
     private int getNumShouldSpawn(int numPlayers) {
+        // If the map has a fixed mob capacity, the number of players is irrelevant
+        if (mobCapacity > -1) {
+            return mobCapacity;
+        }
         /*
         System.out.println("----------------------------------");
         for (SpawnPoint spawnPoint : getMonsterSpawn()) {
