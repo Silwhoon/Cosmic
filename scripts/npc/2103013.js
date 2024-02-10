@@ -35,6 +35,8 @@ const DIFFICULTY_NORMAL = 1;
 const DIFFICULTY_HARD = 2;
 const DIFFICULTY_HELL = 3;
 
+const PROTECTOR_OF_PHARAOH_QUEST = 29932;
+const PROTECTOR_OF_PHARAOH_MEDAL = 1142142;
 const PYRAMID_DUNES = 926010000;
 const NETTS_PYRAMID_END = 926010001;
 const SHADES_OF_THE_PYRAMID = 926020001;
@@ -112,7 +114,15 @@ function pyramidDunesAction(mode, type, selection) {
                     cm.dispose();
                     break;
                 case RECEIVE_THE_PHARAOH_MEDAL:
-                    cm.sendOk("TODO: Receive the Pharaoh Medal (1142142) (29932). Requires 50,000 monster kills on any difficulty");
+                    // var progress = Number(cm.getPlayer().getQuest(PROTECTOR_OF_PHARAOH_QUEST).getProgress(7760));
+                    //
+                    // if (progress >= 50000) {
+                    //     cm.sendYesNo("It would seem that you are deserving of the #b<Protector of Pharaoh>#k Medal. You have eliminated a total of #b" + progress + "#k monsters in Nett's Pyramid thus far. Would you like to receive the #bProtector of Pharaoh Medal#k?");
+                    // } else {
+                    //     cm.sendNext("You don't deserve to be called a Protector of Pharaoh. You must eliminate over #b50,000#k monsters.\r\n\r\n#bThe total number of monsters that you have eliminated thus far is " + progress);
+                    //     cm.dispose();
+                    // }
+                    cm.sendNext("Not yet implemented");
                     cm.dispose();
                     break;
             }
@@ -154,8 +164,19 @@ function pyramidDunesAction(mode, type, selection) {
                         }
                     } else {
                         // TODO: Find GMS-like text for this
-                        cm.sendOk("You do not have a jewel of this type.");
+                        cm.sendNext("You do not have a jewel of this type.");
                     }
+                    cm.dispose();
+                    break;
+                case RECEIVE_THE_PHARAOH_MEDAL:
+                    if (!cm.canHold(PROTECTOR_OF_PHARAOH_MEDAL, 1)) {
+                        cm.sendNext("Please make sure you have enough space in your Equip inventory.");
+                        cm.dispose();
+                        return;
+                    }
+                    cm.gainItem(PROTECTOR_OF_PHARAOH_MEDAL, 1, true, true);
+                    cm.earnTitle("You've acquired the <Protector of Pharaoh> title");
+                    cm.completeQuest(PROTECTOR_OF_PHARAOH_QUEST, 9000066);
                     cm.dispose();
                     break;
                 default:

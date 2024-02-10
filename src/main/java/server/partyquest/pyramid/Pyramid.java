@@ -23,13 +23,17 @@
 package server.partyquest.pyramid;
 
 import client.Character;
+import client.QuestStatus;
 import net.server.Server;
 import net.server.channel.Channel;
 import net.server.world.Party;
 import net.server.world.PartyCharacter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import server.TimerManager;
 import server.life.Monster;
 import server.maps.MapleMap;
+import server.quest.Quest;
 import tools.PacketCreator;
 
 import java.util.*;
@@ -43,6 +47,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  */
 public class Pyramid {
 
+    private static final Logger log = LoggerFactory.getLogger(Pyramid.class);
+    private static final int PROTECTOR_OF_PHARAOH_QUEST = 29932;
     private static final int ENTRANCE_MAP_ID = 926010000;
     private static final int END_MAP_ID = 926010001;
 
@@ -310,6 +316,7 @@ public class Pyramid {
     public void hitMonster(Character character, Monster monster, int damage) {
         character.getPyramidCharacterStats().addHits(1);
         character.getPyramidCharacterStats().calculateRank();
+        addQuestProgress(character);
         if (gauge < total) {
             counter++;
         }
@@ -351,6 +358,33 @@ public class Pyramid {
         gauge -= missSub;
 
         broadcastInfo(character, "miss", character.getPyramidCharacterStats().getTotalMisses());
+    }
+
+    public void addQuestProgress(Character character) {
+        QuestStatus questStatus = character.getQuest(PROTECTOR_OF_PHARAOH_QUEST);
+        QuestStatus.Status currentStatus = questStatus.getStatus();
+
+        // If the player has not yet started the quest, force start it
+        if (currentStatus.equals(QuestStatus.Status.NOT_STARTED)) {
+            Quest quest = Quest.getInstance(PROTECTOR_OF_PHARAOH_QUEST);
+            quest.forceStart(character, quest.getNpcRequirement(false));
+        }
+
+        try {
+            // Otherwise, if it is started then increment progress
+            if (currentStatus.equals(QuestStatus.Status.STARTED)) {
+                int currentProgress = 0;
+                if (!questStatus.getProgress(7760).isEmpty()) {
+                    currentProgress = Integer.parseInt(questStatus.getProgress(7760));
+                }
+
+                currentProgress++;
+
+                character.setQuestProgress(PROTECTOR_OF_PHARAOH_QUEST, 7760, String.valueOf(currentProgress));
+            }
+        } catch (NumberFormatException nfe) {
+            log.error("Trying to update characters pyramid quest, but getProgress(7760) return a non-integer", nfe);
+        }
     }
 
     public boolean checkCharactersArePresent() {
