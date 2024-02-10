@@ -11268,6 +11268,9 @@ public class Character extends AbstractCharacterObject {
         byte rank = getPyramidCharacterStats().getRank().getCode();
         int pyramidExp = getPyramidCharacterStats().calculateExp();
 
+        if (rank == 4) {
+            sendPacket(PacketCreator.mapEffect("killing/fail"));
+        }
         sendPacket(PacketCreator.pyramidScore(rank, pyramidExp));
         gainExp(pyramidExp, true, true);
     }

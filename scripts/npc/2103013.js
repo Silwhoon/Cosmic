@@ -164,7 +164,7 @@ function pyramidDunesAction(mode, type, selection) {
                         }
                     } else {
                         // TODO: Find GMS-like text for this
-                        cm.sendNext("You do not have a jewel of this type.");
+                        cm.sendOk("You'll need a gem to enter Pharaoh Yeti's Tomb. Are you sure you have one?");
                     }
                     cm.dispose();
                     break;

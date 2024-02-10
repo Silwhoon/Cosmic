@@ -1387,6 +1387,7 @@ public class MapleMap {
 
         if (chr == null) {
             if (removeKilledMonsterObject(monster)) {
+                monster.killBy(null);
                 monster.dispatchMonsterKilled(false);
                 broadcastMessage(PacketCreator.killMonster(monster.getObjectId(), animation), monster.getPosition());
                 monster.aggroSwitchController(null, false);

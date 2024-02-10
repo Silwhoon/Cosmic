@@ -31,12 +31,15 @@ import net.server.world.PartyCharacter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.TimerManager;
+import server.life.LifeFactory;
 import server.life.Monster;
 import server.maps.MapleMap;
 import server.quest.Quest;
 import tools.PacketCreator;
 
+import java.awt.*;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -197,6 +200,8 @@ public class Pyramid {
         gauge = total;
         counter = 0;
 
+        spawnYetiMonsters();
+
         List<Character> charactersToRemove = new ArrayList<>();
 
         // Move players into the map
@@ -207,6 +212,7 @@ public class Pyramid {
             } else {
                 character.changeMap(getCurrentMapId());
                 character.sendPacket(PacketCreator.getClock(getStageTimeInSeconds()));
+                broadCastStageInfo(character);
             }
         }
 
@@ -215,7 +221,6 @@ public class Pyramid {
             warpToEnd(character);
         }
 
-        // TODO: Display stage number effect here
         // Start the relevant timers for the stage
         startStageTimer();
         startCoreTimer();
@@ -229,13 +234,13 @@ public class Pyramid {
         }
 
         stageTimer = TimerManager.getInstance().schedule(() -> {
-            // Stop the core timer, warpAllToNextStage will restart it again
+            // Stop the core timer, startNextStage() will restart it again
             if (coreTimer != null) {
                 coreTimer.cancel(true);
                 coreTimer = null;
             }
 
-            // Also stop the respawn timer, warpAllToNextStage will restart it again
+            // Also stop the respawn timer, startNextStage() will restart it again
             if (respawnTimer != null) {
                 respawnTimer.cancel(true);
                 respawnTimer = null;
@@ -263,6 +268,72 @@ public class Pyramid {
         respawnTimer = TimerManager.getInstance().register(() -> {
             getMap(getCurrentMapId()).respawn();
         }, SECONDS.toMillis(3), SECONDS.toMillis(10));
+    }
+
+    private void spawnYetiMonsters() {
+        int easyYetiToSpawn = 0; // Yeti that spawns after 90 seconds
+        int hardYetiToSpawn = 0; // Yeti that spawns after 15 seconds
+
+        // The number of Yeti's spawned is based on whether you are running solo or not
+
+        // Solo:
+        //  Stage 1: 0
+        //  Stage 2: 1 after 90 sec - Spawn 9700023
+        //  Stage 3: 1 after 15 sec - Spawn 9700022
+        //  Stage 4: 1 after 15 sec, 1 after 90 sec - Spawn 9700022 and 2700023
+        //  Stage 5: 2 after 15 sec - Spawn 2 9700022
+        if (solo) {
+            switch (currentStage) {
+                case 2:
+                    easyYetiToSpawn = 1;
+                    break;
+                case 3:
+                    hardYetiToSpawn = 1;
+                    break;
+                case 4:
+                    easyYetiToSpawn = 1;
+                    hardYetiToSpawn = 1;
+                    break;
+                case 5:
+                    hardYetiToSpawn = 2;
+                    break;
+                default:
+                    return;
+            }
+        }
+
+        // Party:
+        //  Stage 1: 1 after 90 sec - Spawn 9700023
+        //  Stage 2: 1 after 15 sec - Spawn 9700022
+        //  Stage 3: 1 after 15 sec, 1 after 90 sec - Spawn 9700022 and 2700023
+        //  Stage 4: 2 after 15 sec - Spawn 2 9700022
+        //  Stage 5: 2 after 15 sec - Spawn 2 9700022
+        if (!solo) {
+            switch (currentStage) {
+                case 1:
+                    easyYetiToSpawn = 1;
+                    break;
+                case 2:
+                    hardYetiToSpawn = 1;
+                    break;
+                case 3:
+                    easyYetiToSpawn = 1;
+                    hardYetiToSpawn = 1;
+                    break;
+                case 4, 5:
+                    hardYetiToSpawn = 2;
+                    break;
+                default:
+                    return;
+            }
+        }
+
+        for (int i = 0; i < easyYetiToSpawn; i++) {
+            getMap(getCurrentMapId()).spawnMonsterOnGroundBelow(LifeFactory.getMonster(9700023), new Point(0, 88));
+        }
+        for (int i = 0; i < hardYetiToSpawn; i++) {
+            getMap(getCurrentMapId()).spawnMonsterOnGroundBelow(LifeFactory.getMonster(9700022), new Point(0, 88));
+        }
     }
 
     public void leaveParty(Character character) {
@@ -314,6 +385,25 @@ public class Pyramid {
     }
 
     public void hitMonster(Character character, Monster monster, int damage) {
+        // If the damage is 0, then the player has missed
+        if (damage == 0) {
+            missMonster(character, monster);
+            return;
+        }
+
+        // Otherwise, the player killed the monsteer
+        killMonster(character);
+
+        // Check if the kill proc'd a 'Cool' effect
+        if (damage >= monster.getStats().getCoolDamage()) {
+            int rand = (new Random().nextInt(100) + 1);
+            if (rand <= monster.getStats().getCoolDamageProb()) {
+                coolProc(character);
+            }
+        }
+    }
+
+    private void killMonster(Character character) {
         character.getPyramidCharacterStats().addHits(1);
         character.getPyramidCharacterStats().calculateRank();
         addQuestProgress(character);
@@ -325,14 +415,6 @@ public class Pyramid {
         broadcastInfo(character, "hit", character.getPyramidCharacterStats().getTotalHits());
         if (gauge >= total) {
             gauge = total;
-        }
-
-        // Check if the hit proc'd a 'Cool' effect
-        if (damage >= monster.getStats().getCoolDamage()) {
-            int rand = (new Random().nextInt(100) + 1);
-            if (rand <= monster.getStats().getCoolDamageProb()) {
-                coolProc(character);
-            }
         }
     }
 
@@ -352,10 +434,11 @@ public class Pyramid {
     }
 
     // TODO: Implement misses
-    public void missMonster(Character character, Monster monster) {
+    private void missMonster(Character character, Monster monster) {
         character.getPyramidCharacterStats().addMisses(1);
         character.getPyramidCharacterStats().calculateRank();
         gauge -= missSub;
+        counter -= missSub;
 
         broadcastInfo(character, "miss", character.getPyramidCharacterStats().getTotalMisses());
     }
@@ -453,6 +536,11 @@ public class Pyramid {
     }
 
     // TODO: broadcast stage number at the start of each stage
+    public void broadCastStageInfo(Character character) {
+        character.sendPacket(PacketCreator.mapEffect("killing/first/stage"));
+        character.sendPacket(PacketCreator.mapEffect("killing/first/number/" + currentStage));
+        character.sendPacket(PacketCreator.mapEffect("killing/first/start"));
+    }
 
     public void broadcastInfo(Character character, String info, int amount) {
         character.sendPacket(PacketCreator.getEnergy("massacre_" + info, amount));
