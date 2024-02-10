@@ -8,12 +8,14 @@ public class PyramidCharacterStats {
     private int totalCools;
     private PyramidRank rank = PyramidRank.C;
     private int exp;
+    private int skillUses;
 
     public PyramidCharacterStats(PyramidDifficulty difficulty) {
         this.difficulty = difficulty;
         this.totalHits = 0;
         this.totalMisses = 0;
         this.totalCools = 0;
+        this.skillUses = 0;
     }
 
     public PyramidDifficulty getDifficulty() {
@@ -45,7 +47,7 @@ public class PyramidCharacterStats {
     }
 
     public void addHits(int amount) {
-        this.totalHits += amount;
+        totalHits += amount;
     }
 
     public int getTotalMisses() {
@@ -53,7 +55,7 @@ public class PyramidCharacterStats {
     }
 
     public void addMisses(int amount) {
-        this.totalMisses += amount;
+        totalMisses += amount;
     }
 
     public int getTotalCools() {
@@ -61,17 +63,44 @@ public class PyramidCharacterStats {
     }
 
     public void addCools(int amount) {
-        this.totalCools += amount;
+        totalCools += amount;
+    }
+
+    public void addSkillUses(int amount) {
+        skillUses += amount;
+    }
+
+    public boolean canUseSkill() {
+        return skillUses < getMaxSkillUses();
+    }
+
+    public int getMaxSkillUses() {
+        int total = totalHits + totalCools;
+        return total / 500;
+    }
+
+    public int getAvailableSkillUses() {
+        return getMaxSkillUses() - skillUses;
     }
 
     public int calculateExp() {
+        // TODO: Are players are supposed to get more EXP if they are in a party?
         int exp = (totalHits * 20) + (totalCools * 100);
-        if (this.rank.equals(PyramidRank.S)) exp += (5500 * this.difficulty.getMode());
-        if (this.rank.equals(PyramidRank.A)) exp += (5000 * this.difficulty.getMode());
-        if (this.rank.equals(PyramidRank.B)) exp += (4250 * this.difficulty.getMode());
-        if (this.rank.equals(PyramidRank.C)) exp += (2000 * this.difficulty.getMode());
-        if (this.rank.equals(PyramidRank.D)) exp /= 5;
+        if (rank.equals(PyramidRank.S)) exp += (5500 * difficulty.getMode());
+        if (rank.equals(PyramidRank.A)) exp += (5000 * difficulty.getMode());
+        if (rank.equals(PyramidRank.B)) exp += (4250 * difficulty.getMode());
+        if (rank.equals(PyramidRank.C)) exp += (2000 * difficulty.getMode());
+        if (rank.equals(PyramidRank.D)) exp /= 5;
 
         return exp;
+    }
+
+    public int getBlessingBuff() {
+        int total = totalHits + totalCools;
+        if (total >= 2000) return 2022588;
+        else if (total >= 1000) return 2022587;
+        else if (total >= 500) return 2022586;
+        else if (total >= 250) return 2022585;
+        else return 0;
     }
 }

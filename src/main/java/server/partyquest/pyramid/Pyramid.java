@@ -30,6 +30,7 @@ import net.server.world.Party;
 import net.server.world.PartyCharacter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import server.ItemInformationProvider;
 import server.TimerManager;
 import server.life.LifeFactory;
 import server.life.Monster;
@@ -38,8 +39,8 @@ import server.quest.Quest;
 import tools.PacketCreator;
 
 import java.awt.*;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -124,6 +125,8 @@ public class Pyramid {
     }
 
     private void removeCharacter(Character character) {
+        cancelPharaohBuffs(character);
+
         PyramidProcessor.closePyramid(character.getId());
 
         synchronized (this.characters) {
@@ -265,9 +268,10 @@ public class Pyramid {
         // TODO: Find GMS-like respawn rates.
         //  Every video I watch the mobs begin spawning around 9-10 secs from when the stage starts and then spawn every
         //  3-5 ish seconds. But in the WZ files there is a 'createMobInterval' node that is set to 3000 (I'm assuming milliseconds)
+        //  but I feel like respawn every 3 secs is way too much.. especially for solo
         respawnTimer = TimerManager.getInstance().register(() -> {
             getMap(getCurrentMapId()).respawn();
-        }, SECONDS.toMillis(3), SECONDS.toMillis(10));
+        }, SECONDS.toMillis(5), SECONDS.toMillis(10));
     }
 
     private void spawnYetiMonsters() {
@@ -336,6 +340,14 @@ public class Pyramid {
         }
     }
 
+    private void cancelPharaohBuffs(Character character) {
+        ItemInformationProvider ii = ItemInformationProvider.getInstance();
+        character.cancelEffect(ii.getItemEffect(2022585), false, -1);
+        character.cancelEffect(ii.getItemEffect(2022586), false, -1);
+        character.cancelEffect(ii.getItemEffect(2022587), false, -1);
+        character.cancelEffect(ii.getItemEffect(2022588), false, -1);
+    }
+
     public void leaveParty(Character character) {
         // Leaving the party only matters if the PQ was setup as a party PQ and not a solo one
         if (!solo) {
@@ -401,6 +413,12 @@ public class Pyramid {
                 coolProc(character);
             }
         }
+
+        // Give the player a use of the Rage of Pharaoh skill if necessary
+        broadcastInfo(character, "skill", character.getPyramidCharacterStats().getAvailableSkillUses());
+
+        // Check if the player needs a new 'Pharaoh's Blessing' buff
+        checkBlessingBuff(character);
     }
 
     private void killMonster(Character character) {
@@ -443,6 +461,15 @@ public class Pyramid {
         broadcastInfo(character, "miss", character.getPyramidCharacterStats().getTotalMisses());
     }
 
+    public void useSkill(Character character) {
+        if (!character.getPyramidCharacterStats().canUseSkill()) {
+            fail(character);
+            return;
+        }
+
+        character.getPyramidCharacterStats().addSkillUses(1);
+    }
+
     public void addQuestProgress(Character character) {
         QuestStatus questStatus = character.getQuest(PROTECTOR_OF_PHARAOH_QUEST);
         QuestStatus.Status currentStatus = questStatus.getStatus();
@@ -467,6 +494,14 @@ public class Pyramid {
             }
         } catch (NumberFormatException nfe) {
             log.error("Trying to update characters pyramid quest, but getProgress(7760) return a non-integer", nfe);
+        }
+    }
+
+    public void checkBlessingBuff(Character character) {
+        int itemId = character.getPyramidCharacterStats().getBlessingBuff();
+        if (itemId != 0 && !character.hasActiveBuff(itemId)) {
+            ItemInformationProvider ii = ItemInformationProvider.getInstance();
+            ii.getItemEffect(itemId).applyTo(character);
         }
     }
 
