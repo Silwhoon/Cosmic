@@ -20,11 +20,29 @@
  */
 package tools;
 
+import client.BuddylistEntry;
+import client.BuffStat;
 import client.Character;
-import client.*;
 import client.Character.SkillEntry;
-import client.inventory.*;
+import client.Client;
+import client.Disease;
+import client.FamilyEntitlement;
+import client.FamilyEntry;
+import client.MonsterBook;
+import client.Mount;
+import client.QuestStatus;
+import client.Ring;
+import client.Skill;
+import client.SkillMacro;
+import client.Stat;
+import client.inventory.Equip;
 import client.inventory.Equip.ScrollResult;
+import client.inventory.Inventory;
+import client.inventory.InventoryType;
+import client.inventory.Item;
+import client.inventory.ItemFactory;
+import client.inventory.ModifyInventory;
+import client.inventory.Pet;
 import client.keybind.KeyBinding;
 import client.keybind.QuickslotBinding;
 import client.newyear.NewYearCardRecord;
@@ -59,22 +77,49 @@ import net.server.world.Party;
 import net.server.world.PartyCharacter;
 import net.server.world.PartyOperation;
 import net.server.world.World;
+import server.CashShop;
 import server.CashShop.CashItem;
 import server.CashShop.CashItemFactory;
 import server.CashShop.SpecialCashItem;
-import server.*;
+import server.DueyPackage;
+import server.ItemInformationProvider;
+import server.MTSItemInfo;
+import server.ShopItem;
+import server.Trade;
 import server.events.gm.Snowball;
-import server.life.*;
-import server.maps.*;
+import server.life.MobSkill;
+import server.life.MobSkillId;
+import server.life.Monster;
+import server.life.NPC;
+import server.life.PlayerNPC;
+import server.maps.AbstractMapObject;
+import server.maps.Door;
+import server.maps.DoorObject;
+import server.maps.Dragon;
+import server.maps.HiredMerchant;
+import server.maps.MapItem;
+import server.maps.MapleMap;
+import server.maps.MiniGame;
 import server.maps.MiniGame.MiniGameResult;
+import server.maps.Mist;
+import server.maps.PlayerShop;
+import server.maps.PlayerShopItem;
+import server.maps.Reactor;
+import server.maps.Summon;
 import server.movement.LifeMovementFragment;
 
 import java.awt.*;
 import java.net.InetAddress;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.*;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TimeZone;
 import java.util.stream.Collectors;
 
 /**
@@ -5536,8 +5581,8 @@ public class PacketCreator {
 
     public static Packet showMTSCash(Character chr) {
         final OutPacket p = OutPacket.create(SendOpcode.MTS_OPERATION2);
-        p.writeInt(chr.getCashShop().getCash(4));
-        p.writeInt(chr.getCashShop().getCash(2));
+        p.writeInt(chr.getCashShop().getCash(CashShop.NX_PREPAID));
+        p.writeInt(chr.getCashShop().getCash(CashShop.MAPLE_POINT));
         return p;
     }
 
@@ -5645,9 +5690,9 @@ public class PacketCreator {
 
     public static Packet showCash(Character mc) {
         final OutPacket p = OutPacket.create(SendOpcode.QUERY_CASH_RESULT);
-        p.writeInt(mc.getCashShop().getCash(1));
-        p.writeInt(mc.getCashShop().getCash(2));
-        p.writeInt(mc.getCashShop().getCash(4));
+        p.writeInt(mc.getCashShop().getCash(CashShop.NX_CREDIT));
+        p.writeInt(mc.getCashShop().getCash(CashShop.MAPLE_POINT));
+        p.writeInt(mc.getCashShop().getCash(CashShop.NX_PREPAID));
         return p;
     }
 
@@ -6136,23 +6181,6 @@ public class PacketCreator {
         return showSpecialEffect(15);
     }
 
-    public static Packet showBuybackEffect() {
-        final OutPacket p = OutPacket.create(SendOpcode.SHOW_ITEM_GAIN_INCHAT);
-        p.writeByte(11);
-        p.writeInt(0);
-
-        return p;
-    }
-
-    public static Packet showForeignBuybackEffect(int cid) {
-        final OutPacket p = OutPacket.create(SendOpcode.SHOW_FOREIGN_EFFECT);
-        p.writeInt(cid);
-        p.writeByte(11);
-        p.writeInt(0);
-
-        return p;
-    }
-
     /**
      * 0 = Levelup 6 = Exp did not drop (Safety Charms) 7 = Enter portal sound
      * 8 = Job change 9 = Quest complete 10 = Recovery 11 = Buff effect
@@ -6452,14 +6480,15 @@ public class PacketCreator {
         return p;
     }
 
-    public static Packet onCashGachaponOpenSuccess(int accountid, long sn, int remainingBoxes, Item item, int itemid, int nSelectedItemCount, boolean bJackpot) {
+    public static Packet onCashGachaponOpenSuccess(int accountid, long boxCashId, int remainingBoxes, Item reward,
+                                                   int rewardItemId, int rewardQuantity, boolean bJackpot) {
         OutPacket p = OutPacket.create(SendOpcode.CASHSHOP_CASH_ITEM_GACHAPON_RESULT);
         p.writeByte(0xE5);   // subopcode thanks to Ubaware
-        p.writeLong(sn);// sn of the box used
+        p.writeLong(boxCashId);
         p.writeInt(remainingBoxes);
-        addCashItemInformation(p, item, accountid);
-        p.writeInt(itemid);// the itemid of the liSN?
-        p.writeByte(nSelectedItemCount);// the total count now? o.O
+        addCashItemInformation(p, reward, accountid);
+        p.writeInt(rewardItemId);
+        p.writeByte(rewardQuantity); // nSelectedItemCount
         p.writeBool(bJackpot);// "CashGachaponJackpot"
         return p;
     }
