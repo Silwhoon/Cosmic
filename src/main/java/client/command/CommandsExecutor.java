@@ -36,6 +36,7 @@ import client.command.commands.gm0.JoinEventCommand;
 import client.command.commands.gm0.LeaveEventCommand;
 import client.command.commands.gm0.MapOwnerClaimCommand;
 import client.command.commands.gm0.OnlineCommand;
+import client.command.commands.gm0.QuestRewardCommand;
 import client.command.commands.gm0.RanksCommand;
 import client.command.commands.gm0.RatesCommand;
 import client.command.commands.gm0.ReadPointsCommand;
@@ -198,6 +199,7 @@ import client.command.commands.gm6.ShutdownCommand;
 import client.command.commands.gm6.SpawnAllPNpcsCommand;
 import client.command.commands.gm6.SupplyRateCouponCommand;
 import client.command.commands.gm6.WarpWorldCommand;
+import config.YamlConfig;
 import constants.id.MapId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -367,6 +369,9 @@ public class CommandsExecutor {
         addCommand("mylawn", MapOwnerClaimCommand.class);
         addCommand("bosshp", BossHpCommand.class);
         addCommand("mobhp", MobHpCommand.class);
+        if (YamlConfig.config.server.USE_CUSTOM_QUEST_REWARDS) {
+            addCommand("quest", QuestRewardCommand.class);
+        }
 
         commandsNameDesc.add(levelCommandsCursor);
     }

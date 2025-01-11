@@ -261,6 +261,7 @@ server:
     USE_MAP_OWNERSHIP_SYSTEM: false      #Flag to enable/disable map ownership system
     USE_FISHING_SYSTEM: false            #Flag to enable/disable custom fishing system
     USE_NPCS_SCRIPTABLE: true           #Flag to enable/disable serverside predefined script NPCs.
+    USE_CUSTOM_QUEST_REWARDS: true      #Flag to enable/disable the custom quest rewarding NPC accessed through the @quest command.
 
     #Events/PQs Configuration
     USE_OLD_GMS_STYLED_PQ_NPCS: true     #Enables PQ NPCs with similar behaviour to old GMS style, that skips info about the PQs and immediately tries to register the party in.
