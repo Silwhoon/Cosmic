@@ -262,6 +262,9 @@ server:
     USE_FISHING_SYSTEM: false            #Flag to enable/disable custom fishing system
     USE_NPCS_SCRIPTABLE: true           #Flag to enable/disable serverside predefined script NPCs.
     USE_CUSTOM_QUEST_REWARDS: true      #Flag to enable/disable the custom quest rewarding NPC accessed through the @quest command.
+    USE_CUSTOM_VIP_SYSTEM: true         #Flag to enable/disable the custom VIP system. Players will be able to purchase an item from the cash shop and will gain access to 'Donor' commands
+    CUSTOM_VIP_SYSTEM_ITEM_ID: 5211018  #The ID of the item that will allow the player to use the available donor commands. This will only work if USE_CUSTOM_VIP_SYSTEM is set to 'true'
+    CUSTOM_VIP_SYSTEM_ITEM_EXPIRATION: 30 # The number of DAYS that the VIP item will last for.
 
     #Events/PQs Configuration
     USE_OLD_GMS_STYLED_PQ_NPCS: true     #Enables PQ NPCs with similar behaviour to old GMS style, that skips info about the PQs and immediately tries to register the party in.

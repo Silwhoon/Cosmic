@@ -52,6 +52,7 @@ import client.command.commands.gm0.ToggleExpCommand;
 import client.command.commands.gm0.UptimeCommand;
 import client.command.commands.gm1.BossHpCommand;
 import client.command.commands.gm1.BuffMeCommand;
+import client.command.commands.gm1.DailyCommand;
 import client.command.commands.gm1.GotoCommand;
 import client.command.commands.gm1.MobHpCommand;
 import client.command.commands.gm1.WhatDropsFromCommand;
@@ -203,6 +204,7 @@ import config.YamlConfig;
 import constants.id.MapId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import server.ItemInformationProvider;
 import tools.Pair;
 
 import java.util.ArrayList;
@@ -278,7 +280,18 @@ public class CommandsExecutor {
             client.getPlayer().yellowMessage("Command '" + commandName + "' is not available. See @commands for a list of available commands.");
             return;
         }
-        if (client.getPlayer().gmLevel() < command.getRank()) {
+        // Special handling for 'donor' commands
+        if (YamlConfig.config.server.USE_CUSTOM_VIP_SYSTEM && command.getRank() == 1) {
+            int itemId = YamlConfig.config.server.CUSTOM_VIP_SYSTEM_ITEM_ID;
+
+            // Check if the player has the required item in their inventory. If they don't notify them that they need it
+            // If the player does have at least 1 of the item in their inventory, allow them to use the command
+            if (client.getPlayer().getItemQuantity(itemId, false) <= 0) {
+                String itemName = ItemInformationProvider.getInstance().getName(YamlConfig.config.server.CUSTOM_VIP_SYSTEM_ITEM_ID);
+                client.getPlayer().yellowMessage("You must purchase a '" + itemName + "' from the Cash Shop to be able to use this command.");
+                return;
+            }
+        } else if (client.getPlayer().gmLevel() < command.getRank()) {
             client.getPlayer().yellowMessage("You do not have permission to use this command.");
             return;
         }
@@ -384,6 +397,9 @@ public class CommandsExecutor {
         addCommand("whodrops", 1, WhoDropsCommand.class);
         addCommand("buffme", 1, BuffMeCommand.class);
         addCommand("goto", 1, GotoCommand.class);
+        if (YamlConfig.config.server.USE_CUSTOM_VIP_SYSTEM) {
+            addCommand("daily", 1, DailyCommand.class);
+        }
 
         commandsNameDesc.add(levelCommandsCursor);
     }

@@ -110,6 +110,9 @@ public class ServerConfig {
     public boolean USE_FISHING_SYSTEM;
     public boolean USE_NPCS_SCRIPTABLE;
     public boolean USE_CUSTOM_QUEST_REWARDS;
+    public boolean USE_CUSTOM_VIP_SYSTEM;
+    public int CUSTOM_VIP_SYSTEM_ITEM_ID;
+    public int CUSTOM_VIP_SYSTEM_ITEM_EXPIRATION;
 
     //Events/PQs Configuration
     public boolean USE_OLD_GMS_STYLED_PQ_NPCS;

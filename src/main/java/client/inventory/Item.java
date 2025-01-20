@@ -22,12 +22,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package client.inventory;
 
 import client.inventory.manipulator.KarmaManipulator;
+import config.YamlConfig;
 import constants.inventory.ItemConstants;
+import net.server.Server;
 import server.ItemInformationProvider;
 
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Item implements Comparable<Item> {
@@ -169,6 +172,12 @@ public class Item implements Comparable<Item> {
     }
 
     public void setExpiration(long expire) {
+        // Override expiration for custom VIP system here
+        if (YamlConfig.config.server.USE_CUSTOM_VIP_SYSTEM && id == YamlConfig.config.server.CUSTOM_VIP_SYSTEM_ITEM_ID) {
+            this.expiration = Server.getInstance().getCurrentTime() + TimeUnit.DAYS.toMillis(YamlConfig.config.server.CUSTOM_VIP_SYSTEM_ITEM_EXPIRATION);
+            return;
+        }
+
         this.expiration = !ItemConstants.isPermanentItem(id) ? expire : ItemConstants.isPet(id) ? Long.MAX_VALUE : -1;
     }
 
